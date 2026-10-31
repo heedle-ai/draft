@@ -8,25 +8,28 @@
 // tokenizer, and the reader can be tested without pulling in the
 // translator.
 //
-// The grammar is the usual one:
+// Lexing and parsing are done by participle
+// (github.com/alecthomas/participle), from the token rules and grammar
+// below. This package only classifies atoms and decodes strings:
 //
-//	form    = list | atom
+//	form    = list | string | atom
 //	list    = "(" form* ")"
-//	atom    = string | number | keyword | symbol
-//	string  = '"' ( escape | . )* '"'
-//	keyword = ":" symbol-chars
-//	symbol  = any run of non-delimiter chars
+//	atom    = keyword | number | symbol   (decided after parsing)
+//	keyword = ":" name
+//	string  = '"' ( \n | \t | \r | \" | \\ | any other char but '"' or '\' )* '"'
 //
 // Comments run to end of line and start with ';' (lisp convention) or
-// '//' (what the legacy draft lexer used). Both are accepted so a
-// converted script keeps its comments either way.
+// '//'. Both are accepted.
 package sexpr
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
-	"unicode"
+
+	"github.com/alecthomas/participle/v2"
+	"github.com/alecthomas/participle/v2/lexer"
 )
 
 // === Forms =================================================================
@@ -126,207 +129,124 @@ func (e SyntaxError) Error() string {
 
 // === Reader ================================================================
 
+// The token rules. Order matters: a comment is tried before an atom, so
+// "//" at the start of a token begins a comment, while "a//b" is one atom.
+var sexprLexer = lexer.MustSimple([]lexer.SimpleRule{
+	{Name: "Comment", Pattern: `;[^\n]*|//[^\n]*`},
+	// Whitespace is what unicode.IsSpace accepts: ASCII spaces, \v, U+0085
+	// and every Unicode space separator.
+	{Name: "Whitespace", Pattern: `[\s\v\x{85}\p{Z}]+`},
+	{Name: "String", Pattern: `"(\\[ntr"\\]|[^"\\])*"`},
+	{Name: "LParen", Pattern: `\(`},
+	{Name: "RParen", Pattern: `\)`},
+	{Name: "Atom", Pattern: `[^\s\v\x{85}\p{Z}()";]+`},
+})
+
+// The grammar, as participle struct tags.
+type file struct {
+	Forms []*node `parser:"@@*"`
+}
+
+type node struct {
+	Pos    lexer.Position
+	List   *list   `parser:"  @@"`
+	String *string `parser:"| @String"`
+	Atom   *string `parser:"| @Atom"`
+}
+
+type list struct {
+	Pos   lexer.Position
+	Items []*node `parser:"\"(\" @@* \")\""`
+}
+
+var parser = participle.MustBuild[file](
+	participle.Lexer(sexprLexer),
+	participle.Elide("Comment", "Whitespace"),
+)
+
 // Read parses source text into a sequence of top-level forms. An empty
 // (or comment-only) source reads as zero forms without error; rejecting
 // that is the caller's business.
 func Read(src string) ([]Form, error) {
-	r := &reader{src: []rune(src), line: 1, col: 1}
-	var out []Form
-	for {
-		r.skipSpace()
-		if r.eof() {
-			return out, nil
-		}
-		f, err := r.readForm()
+	f, err := parser.ParseString("", src)
+	if err != nil {
+		return nil, syntaxError(err)
+	}
+	out := make([]Form, 0, len(f.Forms))
+	for _, n := range f.Forms {
+		form, err := convert(n)
 		if err != nil {
 			return nil, err
 		}
-		out = append(out, f)
+		out = append(out, form)
 	}
+	return out, nil
 }
 
-// Detect reports whether src is s-expression dialect rather than the
-// legacy operator dialect. The two are trivially distinguishable: a
-// legacy block opens with the backend keyword (an identifier), an
-// s-expression script opens with '('. Comments and whitespace are
-// skipped first.
-//
-// This exists so Parse can accept both during the conversion window
-// without a flag, a file extension, or a pragma.
-func Detect(src string) bool {
-	r := &reader{src: []rune(src), line: 1, col: 1}
-	r.skipSpace()
-	return !r.eof() && r.peek() == '('
-}
-
-type reader struct {
-	src  []rune
-	i    int
-	line int
-	col  int
-}
-
-func (r *reader) eof() bool { return r.i >= len(r.src) }
-
-func (r *reader) peek() rune {
-	if r.eof() {
-		return 0
-	}
-	return r.src[r.i]
-}
-
-func (r *reader) pos() Pos { return Pos{Line: r.line, Col: r.col} }
-
-func (r *reader) next() rune {
-	ch := r.src[r.i]
-	r.i++
-	if ch == '\n' {
-		r.line++
-		r.col = 1
-	} else {
-		r.col++
-	}
-	return ch
-}
-
-// skipSpace consumes whitespace and line comments (';' or '//').
-func (r *reader) skipSpace() {
-	for !r.eof() {
-		ch := r.peek()
+func syntaxError(err error) error {
+	var perr participle.Error
+	if errors.As(err, &perr) {
+		p := perr.Position()
+		msg := perr.Message()
+		// Two of participle's messages are reworded in the language's terms.
 		switch {
-		case unicode.IsSpace(ch):
-			r.next()
-		case ch == ';':
-			r.skipLine()
-		case ch == '/' && r.i+1 < len(r.src) && r.src[r.i+1] == '/':
-			r.skipLine()
-		default:
-			return
+		case strings.HasPrefix(msg, `invalid input text "\"`):
+			msg = `unterminated string, or an escape other than \n \t \r \" \\`
+		case strings.HasPrefix(msg, `unexpected token "<EOF>" (expected ")")`):
+			msg = "unclosed '(' at end of input"
 		}
+		return SyntaxError{Pos: Pos{Line: p.Line, Col: p.Column}, Msg: msg}
 	}
+	return SyntaxError{Msg: err.Error()}
 }
 
-func (r *reader) skipLine() {
-	for !r.eof() && r.peek() != '\n' {
-		r.next()
-	}
-}
-
-func (r *reader) readForm() (Form, error) {
-	r.skipSpace()
-	if r.eof() {
-		return Form{}, SyntaxError{Pos: r.pos(), Msg: "unexpected end of input"}
-	}
-	switch ch := r.peek(); {
-	case ch == '(':
-		return r.readList()
-	case ch == ')':
-		return Form{}, SyntaxError{Pos: r.pos(), Msg: "unexpected ')'"}
-	case ch == '"':
-		return r.readString()
-	default:
-		return r.readAtom()
-	}
-}
-
-func (r *reader) readList() (Form, error) {
-	start := r.pos()
-	r.next() // consume '('
-	list := Form{Kind: KindList, Pos: start}
-	for {
-		r.skipSpace()
-		if r.eof() {
-			return Form{}, SyntaxError{Pos: start, Msg: "unclosed '('"}
-		}
-		if r.peek() == ')' {
-			r.next()
-			return list, nil
-		}
-		item, err := r.readForm()
-		if err != nil {
-			return Form{}, err
-		}
-		list.Items = append(list.Items, item)
-	}
-}
-
-func (r *reader) readString() (Form, error) {
-	start := r.pos()
-	r.next() // consume opening quote
-	var sb strings.Builder
-	for {
-		if r.eof() {
-			return Form{}, SyntaxError{Pos: start, Msg: "unterminated string"}
-		}
-		ch := r.next()
-		if ch == '"' {
-			return Form{Kind: KindString, Pos: start, Text: sb.String()}, nil
-		}
-		if ch != '\\' {
-			sb.WriteRune(ch)
-			continue
-		}
-		if r.eof() {
-			return Form{}, SyntaxError{Pos: start, Msg: "unterminated escape sequence"}
-		}
-		esc := r.next()
-		switch esc {
-		case 'n':
-			sb.WriteRune('\n')
-		case 't':
-			sb.WriteRune('\t')
-		case 'r':
-			sb.WriteRune('\r')
-		case '"':
-			sb.WriteRune('"')
-		case '\\':
-			sb.WriteRune('\\')
-		default:
-			return Form{}, SyntaxError{
-				Pos: r.pos(),
-				Msg: fmt.Sprintf("unknown escape sequence \\%s", string(esc)),
+func convert(n *node) (Form, error) {
+	pos := Pos{Line: n.Pos.Line, Col: n.Pos.Column}
+	switch {
+	case n.List != nil:
+		list := Form{Kind: KindList, Pos: pos}
+		for _, item := range n.List.Items {
+			f, err := convert(item)
+			if err != nil {
+				return Form{}, err
 			}
+			list.Items = append(list.Items, f)
 		}
+		return list, nil
+	case n.String != nil:
+		// The lexer admits only escapes Go also defines, so Go's own
+		// unquoting decodes them exactly. A string may span lines; Go's
+		// syntax spells a line break as \n, so convert before unquoting.
+		text, err := strconv.Unquote(strings.ReplaceAll(*n.String, "\n", `\n`))
+		if err != nil {
+			return Form{}, SyntaxError{Pos: pos, Msg: "invalid string " + *n.String}
+		}
+		return Form{Kind: KindString, Pos: pos, Text: text}, nil
+	default:
+		return atom(pos, *n.Atom)
 	}
 }
 
-func (r *reader) readAtom() (Form, error) {
-	start := r.pos()
-	var sb strings.Builder
-	for !r.eof() && !isDelim(r.peek()) {
-		sb.WriteRune(r.next())
-	}
-	text := sb.String()
-	if text == "" {
-		return Form{}, SyntaxError{Pos: start, Msg: "empty atom"}
-	}
+// atom classifies an atom as a keyword, number or symbol.
+func atom(pos Pos, text string) (Form, error) {
 	if strings.HasPrefix(text, ":") {
-		name := text[1:]
-		if name == "" {
-			return Form{}, SyntaxError{Pos: start, Msg: "keyword has no name"}
+		if text == ":" {
+			return Form{}, SyntaxError{Pos: pos, Msg: "keyword has no name"}
 		}
-		return Form{Kind: KindKeyword, Pos: start, Text: name}, nil
+		return Form{Kind: KindKeyword, Pos: pos, Text: text[1:]}, nil
 	}
 	if looksNumeric(text) {
 		if n, err := strconv.ParseFloat(text, 64); err == nil {
-			return Form{Kind: KindNumber, Pos: start, Text: text, Num: n}, nil
+			return Form{Kind: KindNumber, Pos: pos, Text: text, Num: n}, nil
 		}
 	}
-	return Form{Kind: KindSymbol, Pos: start, Text: text}, nil
-}
-
-// isDelim reports whether ch terminates an atom.
-func isDelim(ch rune) bool {
-	return ch == '(' || ch == ')' || ch == '"' || ch == ';' || unicode.IsSpace(ch)
+	return Form{Kind: KindSymbol, Pos: pos, Text: text}, nil
 }
 
 // looksNumeric is a cheap guard so ParseFloat is only consulted for
 // atoms that could plausibly be numbers. Without it, symbols like "inf"
 // and "nan" would parse as floats.
 func looksNumeric(s string) bool {
-	if s == "" {
-		return false
-	}
 	c := s[0]
 	if c == '-' || c == '+' || c == '.' {
 		return len(s) > 1 && s[1] >= '0' && s[1] <= '9'
