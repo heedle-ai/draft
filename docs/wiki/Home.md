@@ -24,7 +24,7 @@ n2 Echo [] [n0 n1]
 | **draft** | Language: how you *write* a computation (this repo) |
 | [shuttle](https://github.com/heedle-ai/shuttle/wiki) | Durable execution: how the work *ran* |
 | [warp](https://github.com/heedle-ai/warp/wiki) | Content-addressed store: what the system *knows* |
-| [drawdown](https://github.com/heedle-ai/drawdown/wiki) | Viewing runs and history |
+| [drawdown](https://github.com/heedle-ai/drawdown/wiki) | Web UI: write, run and browse programs and records |
 | [loom](https://github.com/heedle-ai/loom/wiki) | Runs them together: compile, execute, record |
 
 ## Pages
