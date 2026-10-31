@@ -21,7 +21,7 @@ Both branches of the `par` require `n0`, so both receive `"x"`. The plan has two
 (pipe (par (echo "a") (echo "b")) echo)
 ```
 
-A stage after a `par` requires **every** branch's last node (fan-in), so it receives all their outputs.
+A stage after a `par` requires **every** branch's last node (fan-in), so it receives all their outputs, keyed by node ID. The built-in `echo` joins them in node-ID string order, so with ten or more nodes `n10` comes before `n2`.
 
 ```lisp
 (pipe (par (pipe (echo "x") echo) (echo "y")) echo)

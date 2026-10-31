@@ -20,7 +20,7 @@
 //	symbol  = bare identifier — a call with no arguments
 //
 // A top-level form that is not a block is an implicit block with the
-// default backend (memory) and mode (static). Backend selection is a
+// default backend (temporal) and mode (static). Backend selection is a
 // property of the source, never a runtime flag: the same text always
 // runs the same way.
 package draft
