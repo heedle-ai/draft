@@ -3,6 +3,7 @@ module github.com/heedle-ai/draft
 go 1.24.0
 
 require (
+	github.com/alecthomas/participle/v2 v2.1.1
 	github.com/heedle-ai/shuttle v0.0.0
 	github.com/heedle-ai/weft v0.0.0
 	go.temporal.io/sdk v1.41.1

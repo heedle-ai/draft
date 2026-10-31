@@ -35,6 +35,8 @@ why the existing tool can't do it.
 
 ## Repo-specific
 
+- **Parsing is participle's.** The lexer rules and grammar live in
+  `sexpr/sexpr.go`; don't hand-write tokenizing or parsing.
 - **Grammar changes are breaking changes.** Update the Language wiki page and
   the parser tests together.
 - **Compile never runs anything.** Parse, Resolve, Lower, Finalize and

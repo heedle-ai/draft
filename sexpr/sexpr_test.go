@@ -130,19 +130,32 @@ func TestReadEmpty(t *testing.T) {
 	}
 }
 
-func TestDetect(t *testing.T) {
-	cases := map[string]bool{
-		`(pipe summarize)`:                true,
-		"\n; comment\n(block summarize)":  true,
-		"// legacy comment\n(pipe a)":     true,
-		`memory static ( search "a" )`:    false,
-		"\n\nmemory static ( summarize )": false,
-		``:                                false,
-		`; only a comment`:                false,
+// Found by a differential test against the previous hand-written reader:
+// whitespace is anything unicode.IsSpace accepts, and strings may span lines.
+func TestReadUnicodeWhitespaceAndMultilineStrings(t *testing.T) {
+	forms, err := Read("(pipe\v(ask \"two\nlines\")  summarize\u0085)")
+	if err != nil {
+		t.Fatalf("Read: %v", err)
 	}
-	for src, want := range cases {
-		if got := Detect(src); got != want {
-			t.Errorf("Detect(%q) = %v, want %v", src, got, want)
+	items := forms[0].Items
+	if len(items) != 3 || !items[2].IsSymbol("summarize") {
+		t.Fatalf("items = %+v, want pipe, (ask …), summarize", items)
+	}
+	if got := items[1].Items[1].Text; got != "two\nlines" {
+		t.Errorf("string = %q, want %q", got, "two\nlines")
+	}
+}
+
+func TestReadErrorMessages(t *testing.T) {
+	for src, want := range map[string]string{
+		`(pipe (search "a")`: "sexpr: 1:19: unclosed '(' at end of input",
+		`(ask "\q")`:         `sexpr: 1:6: unterminated string, or an escape other than \n \t \r \" \\`,
+		`(ask "no end`:       `sexpr: 1:6: unterminated string, or an escape other than \n \t \r \" \\`,
+		`summarize)`:         `sexpr: 1:10: unexpected token ")"`,
+		`(block : memory)`:   "sexpr: 1:8: keyword has no name",
+	} {
+		if _, err := Read(src); err == nil || err.Error() != want {
+			t.Errorf("Read(%q) = %v, want %q", src, err, want)
 		}
 	}
 }

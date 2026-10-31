@@ -79,6 +79,7 @@ Compile fails before anything runs:
 | `(pipe (echo "a") shout)` | `block 0: stage 1: unknown builtin "shout" (known: echo)` |
 | `(echo "a" "b")` | `block 0: stage 0: builtin "echo": got 2 args, want 0-1` |
 | `(echo 42)` | `block 0: stage 0: builtin "echo": arg 0 is number, want string` |
-| `(pipe (echo "a"` | `draft.Parse: sexpr: 1:7: unclosed '('` |
+| `(pipe (echo "a"` | `draft.Parse: sexpr: 1:16: unclosed '(' at end of input` |
+| `(echo "a\q")` | `draft.Parse: sexpr: 1:7: unterminated string, or an escape other than \n \t \r \" \\` |
 
 Next: [Language](Language).

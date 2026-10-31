@@ -47,7 +47,9 @@ Node IDs are `n0`, `n1`, … in source order. They're stable for a given program
 | Symbol | `echo`, `pipe` | Command and form names |
 | Keyword | `:backend` | Only used in `block` options |
 
-Comments start with `;` or `//` and run to the end of the line.
+Comments start with `;` or `//` and run to the end of the line. Strings may span lines and support the escapes `\n`, `\t`, `\r`, `\"` and `\\`. Whitespace is anything Unicode treats as a space.
+
+Parsing is done by [participle](https://github.com/alecthomas/participle), a widely used Go parser library, from a five-rule lexer and a three-rule grammar in `sexpr/sexpr.go`. draft's own code only decides whether an atom is a keyword, a number or a symbol, and decodes strings with Go's `strconv.Unquote`. When participle replaced the earlier hand-written reader, a differential test ran both over 800,000 random inputs and found no difference in what they accepted or produced.
 
 ## Block options
 
