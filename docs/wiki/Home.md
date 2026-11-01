@@ -35,6 +35,7 @@ n2 Echo [] [n0 n1]
 | [weft](https://github.com/heedle-ai/weft/wiki) | Composition algebra: what a step *is* |
 | **draft** | Language: how you *write* a computation (this repo) |
 | [shuttle](https://github.com/heedle-ai/shuttle/wiki) | Durable execution: how the work *ran* |
+| [bobbin](https://github.com/heedle-ai/bobbin/wiki) | A fresh Podman container per agent step |
 | [warp](https://github.com/heedle-ai/warp/wiki) | Content-addressed store: what the system *knows* |
 | [drawdown](https://github.com/heedle-ai/drawdown/wiki) | Web UI: write, run and browse programs and records |
 | [loom](https://github.com/heedle-ai/loom/wiki) | Runs them together: compile, execute, record |
