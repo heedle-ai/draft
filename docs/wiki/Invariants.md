@@ -1,4 +1,4 @@
-Every invariant below is guarded by a test or a CI step, and CI checks this page against the code on every push: each test named here must exist, and every `TestLaw_*`, `TestInv_*` and `Fuzz*` test must be listed here. A mistake isn't fixed until it has a row on this page.
+Every invariant below is guarded by a test or a CI step, and CI checks this page against the code on every push with `bash .github/invariants.sh`. Only the **Guarded by** column counts. Each test named there must exist in exactly one package and is run, and the gate fails if it fails or skips; each `ci:NAME` must be a step in `.github/workflows/ci.yml`. Every `TestLaw_*`, `TestInv_*` and `Fuzz*` test must be listed, and no test file may have build tags, which would hide tests from CI. A mistake isn't fixed until it has a row on this page.
 
 [[/images/invariant-loop.svg|alt=From a mistake to a codified invariant: mistake, named invariant, guard, CI gate]]
 
@@ -9,7 +9,8 @@ Every invariant below is guarded by a test or a CI step, and CI checks this page
 | DRAFT-3 | Tokenizing and parsing are participle's; no other package parses | `TestInv_ParserIsParticiple` | A hand-written reader broke the reuse rule |
 | DRAFT-4 | Whitespace is anything Unicode treats as a space; strings may span lines | `TestReadUnicodeWhitespaceAndMultilineStrings` | Differential test between the old and new readers |
 | DRAFT-5 | Syntax errors carry an exact line and column, in plain words | `TestReadErrorMessages`, `TestReadPositions` | participle's raw messages were unclear |
-| DRAFT-6 | Every program diagram on this wiki is exactly what its program compiles to | `TestInv_WikiDiagramsMatchPlans` | Docs must never disagree with the code |
+| DRAFT-6 | Every program diagram on this wiki is generated: each fenced Mermaid block follows a program and is exactly what it compiles to | `TestInv_WikiDiagramsMatchPlans` | Docs must never disagree with the code; review 3: an unpaired diagram was never checked |
 | DRAFT-7 | Documented compile output is exact | `ExampleCompile`, `ExampleCompile_unknownCommand` | Docs must never claim untested behaviour |
 | DRAFT-8 | Only `:backend temporal :mode static` compiles; the old interpreter's modes are refused | `TestMemoryBackendIsRejected` | The in-memory interpreter was left behind |
 | DRAFT-9 | A command must declare the temporal backend, or compiling fails | `TestCustomCommand`, `TestCustomCommand_NeedsTemporalBackend` | Easy to miss when adding a command |
+| DRAFT-10 | This page is checked strictly against the code: every listed guard exists once and runs without skipping, every `TestLaw_`, `TestInv_` and `Fuzz` test is listed, and no test file has build tags | `ci:invariants` | Review 3: a reviewer satisfied the old gate with a guard named only in prose, a skipped test and a build-tagged test |

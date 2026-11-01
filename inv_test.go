@@ -17,7 +17,8 @@ import (
 // immediately followed by a ```mermaid block must compile, and the diagram
 // must be exactly what draft.Mermaid draws for the compiled plan.
 func TestInv_WikiDiagramsMatchPlans(t *testing.T) {
-	block := regexp.MustCompile("(?s)```lisp\n(.*?)```\\s*```mermaid\n(.*?)```")
+	fence := regexp.MustCompile("(?m)^```mermaid$") // a fenced block, not an inline mention
+	block := regexp.MustCompile("```lisp\n([^`]*)```\\s*```mermaid\n([^`]*)```")
 	pages, _ := filepath.Glob("docs/wiki/*.md")
 	checked := 0
 	for _, page := range pages {
@@ -25,7 +26,11 @@ func TestInv_WikiDiagramsMatchPlans(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		for _, m := range block.FindAllStringSubmatch(string(b), -1) {
+		pairs := block.FindAllStringSubmatch(string(b), -1)
+		if n := len(fence.FindAllIndex(b, -1)); n != len(pairs) {
+			t.Errorf("%s: %d mermaid blocks but only %d follow a lisp program; every diagram must be generated from its program", page, n, len(pairs))
+		}
+		for _, m := range pairs {
 			p, err := draft.Compile(context.Background(), draft.DefaultRegistry(), draft.Source(m[1]))
 			if err != nil {
 				t.Errorf("%s: program doesn't compile: %v\n%s", page, err, m[1])
