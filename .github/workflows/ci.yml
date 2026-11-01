@@ -40,3 +40,10 @@ jobs:
       - name: test
         working-directory: draft
         run: go test -race ./...
+      - name: invariants
+        working-directory: draft
+        run: bash .github/invariants.sh
+      - name: fuzz
+        if: matrix.os == 'ubuntu-latest'
+        working-directory: draft
+        run: go test -run '^$' -fuzz FuzzParsePrint -fuzztime 30s .

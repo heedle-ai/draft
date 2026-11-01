@@ -11,8 +11,19 @@ Forms nest freely. A program is one top-level form.
 
 ## How pipe and par combine
 
+Each diagram below is generated from the program above it and checked by `TestInv_WikiDiagramsMatchPlans`, so it always shows what the program really compiles to.
+
 ```lisp
 (pipe (echo "x") (par echo echo))
+```
+
+```mermaid
+graph LR
+  n0["n0: Echo #quot;x#quot;"]
+  n1["n1: Echo"]
+  n2["n2: Echo"]
+  n0 --> n1
+  n0 --> n2
 ```
 
 Both branches of the `par` require `n0`, so both receive `"x"`. The plan has two leaves, `n1` and `n2`.
@@ -21,10 +32,30 @@ Both branches of the `par` require `n0`, so both receive `"x"`. The plan has two
 (pipe (par (echo "a") (echo "b")) echo)
 ```
 
+```mermaid
+graph LR
+  n0["n0: Echo #quot;a#quot;"]
+  n1["n1: Echo #quot;b#quot;"]
+  n2["n2: Echo"]
+  n0 --> n2
+  n1 --> n2
+```
+
 A stage after a `par` requires **every** branch's last node (fan-in), so it receives all their outputs, keyed by node ID. The built-in `echo` joins them in node-ID string order, so with ten or more nodes `n10` comes before `n2`.
 
 ```lisp
 (pipe (par (pipe (echo "x") echo) (echo "y")) echo)
+```
+
+```mermaid
+graph LR
+  n0["n0: Echo #quot;x#quot;"]
+  n1["n1: Echo"]
+  n2["n2: Echo #quot;y#quot;"]
+  n3["n3: Echo"]
+  n0 --> n1
+  n1 --> n3
+  n2 --> n3
 ```
 
 ```text
@@ -58,6 +89,13 @@ An optional wrapper sets how the program runs. `script` is a synonym for `block`
 ```lisp
 (block :backend temporal :mode static
   (pipe (echo "a") echo))
+```
+
+```mermaid
+graph LR
+  n0["n0: Echo #quot;a#quot;"]
+  n1["n1: Echo"]
+  n0 --> n1
 ```
 
 | Option | Values | Default |

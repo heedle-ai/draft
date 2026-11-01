@@ -6,7 +6,16 @@
   echo)                         ; waits for both, receives "a b"
 ```
 
-compiles to this plan:
+```mermaid
+graph LR
+  n0["n0: Echo #quot;a#quot;"]
+  n1["n1: Echo #quot;b#quot;"]
+  n2["n2: Echo"]
+  n0 --> n2
+  n1 --> n2
+```
+
+As plan data:
 
 ```text
 n0 Echo [a] []
@@ -14,7 +23,10 @@ n1 Echo [b] []
 n2 Echo [] [n0 n1]
 ```
 
-`pipe` is sequential composition and `par` is the parallel product. Compiling catches unknown commands, wrong arguments and malformed graphs before anything runs.
+`pipe` is sequential composition (`;`) and `par` is the parallel product (`⊗`). The diagram is generated from the compiled plan, and a test keeps it in sync.
+
+[[/images/compile.svg|alt=The compiler as a composite: Parse ; Resolve ; Lower ; Finalize ; Validate]]
+ Compiling catches unknown commands, wrong arguments and malformed graphs before anything runs.
 
 ## Where draft fits
 
@@ -32,6 +44,7 @@ n2 Echo [] [n0 n1]
 - [Getting Started](Getting-Started): install, compile and run a program
 - [Language](Language): the full syntax, and what each form compiles to
 - [Adding Commands](Adding-Commands): turn a weft arrow into a command
+- [Invariants](Invariants): every guarantee, the test that guards it, and the mistake it came from
 - [Contributing](Contributing)
 
 ## Requirements

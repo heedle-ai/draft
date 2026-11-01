@@ -4,6 +4,7 @@
 - [Getting Started](Getting-Started)
 - [Language](Language)
 - [Adding Commands](Adding-Commands)
+- [Invariants](Invariants)
 - [Contributing](Contributing)
 
 **heedle-ai**
