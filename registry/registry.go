@@ -15,6 +15,8 @@ package registry
 import (
 	"fmt"
 	"sort"
+
+	"github.com/heedle-ai/shuttle/plan"
 )
 
 // === ArgType ===============================================================
@@ -135,6 +137,12 @@ type BuiltinSpec struct {
 	// as "memory only" for safety (a verb with no declared temporal
 	// activity must not be dispatched to Temporal).
 	Backends []Backend
+	// Options are how the command's steps run by default, written into
+	// each of its plan nodes (so the plan records them): for example a
+	// longer Timeout and a Heartbeat for a step that works for minutes.
+	// Zero fields leave shuttle's defaults; a plan's own Defaults don't
+	// override them.
+	Options plan.Options
 }
 
 // Backend identifies an execution backend a builtin supports. It mirrors
