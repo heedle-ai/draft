@@ -213,3 +213,26 @@ func TestInv_CommandOptionsReachThePlan(t *testing.T) {
 		t.Errorf("plan with options doesn't validate: %v", err)
 	}
 }
+
+// TestInv_BoundArgumentsComeFirst: a command's Bound arguments are written
+// first into each of its plan nodes, before the program's own, and only
+// into its nodes; each node gets its own copy, so changing one plan never
+// changes the command or another node.
+func TestInv_BoundArgumentsComeFirst(t *testing.T) {
+	reg := draft.DefaultRegistry()
+	reg.MustRegister(registry.BuiltinSpec{Name: "weather", AgentID: "Skill", Bound: []string{"weather", "tree1"},
+		ArgSchema: registry.ArgSchema{Variadic: true, VariadicType: registry.StringT},
+		Backends:  []registry.Backend{registry.BackendTemporal}})
+	p, err := draft.Compile(context.Background(), reg, draft.Source(`(pipe (echo "a") (par (weather "Boston") (weather)))`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(p.Nodes[0].Args, []string{"a"}) || !reflect.DeepEqual(p.Nodes[1].Args, []string{"weather", "tree1", "Boston"}) ||
+		!reflect.DeepEqual(p.Nodes[2].Args, []string{"weather", "tree1"}) {
+		t.Fatalf("nodes = %+v", p.Nodes)
+	}
+	p.Nodes[2].Args[0] = "changed"
+	if spec, _ := reg.Lookup("weather"); spec.Bound[0] != "weather" || p.Nodes[1].Args[0] != "weather" {
+		t.Errorf("a plan's args share memory with the command: %v %v", spec.Bound, p.Nodes[1].Args)
+	}
+}

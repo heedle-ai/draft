@@ -37,6 +37,7 @@ Running `p` gives `n1 = "HELLO"`. This code is `TestCustomCommand` in `command_t
 | `AgentID` | The Temporal activity name the node dispatches to |
 | `Backends` | **Must include `registry.BackendTemporal`.** Without it the command is treated as memory-only, and compiling fails with `builtin "shout" is not implemented on the temporal backend yet` |
 | `ArgSchema` | Optional. Declares parameters (`registry.StringT`, `Optional`, …) so bad calls fail at compile time. See `EchoSpec` in `builtins.go` |
+| `Bound` | Optional. Arguments every call gets first, before the program's own, written into each plan node: for example a skill's name and the version the plan pins. The program can't change them; `ArgSchema` describes only the program's arguments |
 | `Options` | Optional. How the command's steps run by default (`plan.Options`: `Timeout`, `Heartbeat`, `MaxAttempts`, …), written into each of its plan nodes so the plan records them. Use it for a step that works for minutes, like pirn's `agent` |
 
 ## Rules

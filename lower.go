@@ -93,13 +93,14 @@ func lowerNode(g *idgen, n resolved.Node) (fragment, error) {
 
 // lowerCall produces a one-node fragment. The node's activity is the
 // builtin's resolved AgentID (the registered shuttle activity name); its
-// args are the call's literal arguments stringified.
+// args are the builtin's Bound arguments, then the call's literal
+// arguments stringified.
 func lowerCall(g *idgen, c resolved.Call) fragment {
 	id := g.next()
 	node := plan.Node{
 		ID:       id,
 		Activity: c.Spec.AgentID,
-		Args:     argStrings(c.Args),
+		Args:     append(append([]string(nil), c.Spec.Bound...), argStrings(c.Args)...),
 		Options:  c.Spec.Options,
 	}
 	return fragment{nodes: []plan.Node{node}, entries: []plan.NodeID{id}, exits: []plan.NodeID{id}}

@@ -143,6 +143,11 @@ type BuiltinSpec struct {
 	// Zero fields leave shuttle's defaults; a plan's own Defaults don't
 	// override them.
 	Options plan.Options
+	// Bound are arguments every call of the command gets first, before
+	// the program's own, written into each of its plan nodes: for example
+	// a skill's name and the version the plan pins. The program can't
+	// change them, and ArgSchema describes only the program's arguments.
+	Bound []string
 }
 
 // Backend identifies an execution backend a builtin supports. It mirrors
