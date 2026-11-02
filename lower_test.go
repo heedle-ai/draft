@@ -236,3 +236,20 @@ func TestInv_BoundArgumentsComeFirst(t *testing.T) {
 		t.Errorf("a plan's args share memory with the command: %v %v", spec.Bound, p.Nodes[1].Args)
 	}
 }
+
+// TestInv_ReservedNamesCanNeverBeCalled: every name Reserved reports is
+// one a program can't call as a command, even when a command is
+// registered under it; every other name can be. (Review 13: skills named
+// par or when could be added, but never called.)
+func TestInv_ReservedNamesCanNeverBeCalled(t *testing.T) {
+	for _, name := range []string{"block", "script", "pipe", "par", "when", "guard", "weather", "parse", "echo2"} {
+		reg := draft.DefaultRegistry()
+		reg.MustRegister(registry.BuiltinSpec{Name: name, AgentID: "X", ArgSchema: registry.ArgSchema{Variadic: true, VariadicType: registry.StringT},
+			Backends: []registry.Backend{registry.BackendTemporal}})
+		p, err := draft.Compile(context.Background(), reg, draft.Source(`(`+name+` "a")`))
+		called := err == nil && len(p.Nodes) == 1 && p.Nodes[0].Activity == "X"
+		if called == draft.Reserved(name) {
+			t.Errorf("%s: called %v, reserved %v (%v)", name, called, draft.Reserved(name), err)
+		}
+	}
+}

@@ -317,3 +317,16 @@ func asPipeline(n ast.Node) ast.Node {
 	}
 	return ast.Pipeline{Stages: []ast.Node{n}}
 }
+
+// Reserved reports whether name can't be a command's name in a program:
+// a form head (block, script, pipe, par) or a surface name the parser
+// rewrites (when, guard). A command registered under it could never be
+// called.
+func Reserved(name string) bool {
+	switch name {
+	case formBlock, formScript, formPipe, formPar:
+		return true
+	}
+	_, ok := surfaceVerbs[name]
+	return ok
+}
