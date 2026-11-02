@@ -100,6 +100,7 @@ func lowerCall(g *idgen, c resolved.Call) fragment {
 		ID:       id,
 		Activity: c.Spec.AgentID,
 		Args:     argStrings(c.Args),
+		Options:  c.Spec.Options,
 	}
 	return fragment{nodes: []plan.Node{node}, entries: []plan.NodeID{id}, exits: []plan.NodeID{id}}
 }

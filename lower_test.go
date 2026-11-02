@@ -2,7 +2,9 @@ package draft_test
 
 import (
 	"context"
+	"reflect"
 	"testing"
+	"time"
 
 	"github.com/heedle-ai/shuttle/plan"
 
@@ -187,5 +189,27 @@ func TestCompile_CustomBuiltin(t *testing.T) {
 	}
 	if compiled.Nodes[0].Args[0] != "hey" {
 		t.Errorf("Args = %v", compiled.Nodes[0].Args)
+	}
+}
+
+// TestInv_CommandOptionsReachThePlan: a command's default options are
+// written into every node of that command, and only those, so the plan
+// records how each step runs; a plan that validates before still does.
+func TestInv_CommandOptionsReachThePlan(t *testing.T) {
+	reg := draft.DefaultRegistry()
+	slow := plan.Options{Timeout: 20 * time.Minute, Heartbeat: time.Minute}
+	reg.MustRegister(registry.BuiltinSpec{Name: "slow", AgentID: "Slow", Options: slow,
+		ArgSchema: registry.ArgSchema{Params: []registry.ParamSpec{{Name: "x", Type: registry.StringT}}},
+		Backends:  []registry.Backend{registry.BackendTemporal}})
+	p, err := draft.Compile(context.Background(), reg, draft.Source(`(pipe (echo "a") (slow "b") (slow "c"))`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(p.Nodes) != 3 || !reflect.DeepEqual(p.Nodes[0].Options, plan.Options{}) || p.Nodes[1].Options.Timeout != slow.Timeout ||
+		p.Nodes[2].Options.Heartbeat != slow.Heartbeat {
+		t.Errorf("nodes = %+v", p.Nodes)
+	}
+	if err := p.Validate(); err != nil {
+		t.Errorf("plan with options doesn't validate: %v", err)
 	}
 }
