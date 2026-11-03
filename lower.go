@@ -41,6 +41,18 @@ type fragment struct {
 	entries []plan.NodeID
 	// exits are the nodes whose outputs are the fragment's result.
 	exits []plan.NodeID
+	// shape is the fragment's composition, built by the same walk that
+	// issues its node IDs.
+	shape Shape
+}
+
+// Shape is a program's composition, as the plan lost it: a step (one plan
+// node, by ID), a pipe of stages run one after another (;), or a par of
+// branches run side by side (⊗). Composition gives it for a program.
+type Shape struct {
+	Kind  string      `json:"kind"` // "step", "pipe" or "par"
+	Node  plan.NodeID `json:"node,omitempty"`
+	Parts []Shape     `json:"parts,omitempty"`
 }
 
 // Lowered is the output of Lower: the fragment plus the block's backend
@@ -103,7 +115,7 @@ func lowerCall(g *idgen, c resolved.Call) fragment {
 		Args:     append(append([]string(nil), c.Spec.Bound...), argStrings(c.Args)...),
 		Options:  c.Spec.Options,
 	}
-	return fragment{nodes: []plan.Node{node}, entries: []plan.NodeID{id}, exits: []plan.NodeID{id}}
+	return fragment{nodes: []plan.Node{node}, entries: []plan.NodeID{id}, exits: []plan.NodeID{id}, shape: Shape{Kind: "step", Node: id}}
 }
 
 // lowerPipeline folds the stages, making every entry of each stage require
@@ -117,6 +129,7 @@ func lowerPipeline(g *idgen, p resolved.Pipeline) (fragment, error) {
 
 	var all []plan.Node
 	var prevExits, entries []plan.NodeID
+	shape := Shape{Kind: "pipe"}
 
 	for i, stage := range p.Stages {
 		sf, err := lowerNode(g, stage)
@@ -134,9 +147,10 @@ func lowerPipeline(g *idgen, p resolved.Pipeline) (fragment, error) {
 		}
 		all = append(all, sf.nodes...)
 		prevExits = sf.exits
+		shape.Parts = append(shape.Parts, sf.shape)
 	}
 
-	return fragment{nodes: all, entries: entries, exits: prevExits}, nil
+	return fragment{nodes: all, entries: entries, exits: prevExits, shape: shape}, nil
 }
 
 // lowerParallel places its branches side by side: no edges between them,
@@ -146,7 +160,7 @@ func lowerParallel(g *idgen, p resolved.Parallel) (fragment, error) {
 	if len(p.Branches) == 0 {
 		return fragment{}, fmt.Errorf("lower: empty par")
 	}
-	var f fragment
+	f := fragment{shape: Shape{Kind: "par"}}
 	for i, branch := range p.Branches {
 		bf, err := lowerNode(g, branch)
 		if err != nil {
@@ -155,6 +169,7 @@ func lowerParallel(g *idgen, p resolved.Parallel) (fragment, error) {
 		f.nodes = append(f.nodes, bf.nodes...)
 		f.entries = append(f.entries, bf.entries...)
 		f.exits = append(f.exits, bf.exits...)
+		f.shape.Parts = append(f.shape.Parts, bf.shape)
 	}
 	return f, nil
 }

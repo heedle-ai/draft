@@ -69,6 +69,19 @@ These three shapes are tested in `run_test.go` and run through shuttle's real wo
 
 Node IDs are `n0`, `n1`, … in source order. They're stable for a given program, which keeps plans deterministic and readable in Temporal's UI.
 
+### A program's shape
+
+A plan keeps only who waits for whom; the `pipe`s and `par`s are gone. `draft.Composition` gives them back, for drawing a program as it was written: a tree of `pipe`s (stages run one after another, `;`), `par`s (branches run side by side, `⊗`) and steps, each step named by its plan node's ID. A `pipe` or `par` of one part is just that part. drawdown draws run graphs from it.
+
+```go
+shape, _ := draft.Composition(context.Background(), draft.DefaultRegistry(), `(pipe (par (echo "a") (echo "b")) echo)`)
+b, _ := json.Marshal(shape)
+fmt.Println(string(b))
+// {"kind":"pipe","parts":[{"kind":"par","parts":[{"kind":"step","node":"n0"},{"kind":"step","node":"n1"}]},{"kind":"step","node":"n2"}]}
+```
+
+`ExampleComposition` runs this, and `TestLaw_CompositionMatchesPlan` checks that a shape names exactly its plan's nodes, in order, and that what each step waits for, worked out from the shape alone, is what its plan node requires.
+
 ## Atoms
 
 | Atom | Example | Notes |

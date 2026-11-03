@@ -42,6 +42,35 @@ func Compile(ctx context.Context, reg *registry.Registry, src Source) (plan.Plan
 	return CompileArrow(reg)(ctx, src)
 }
 
+// Composition is a program's shape: how its steps compose, by pipe and
+// par, with each step named by the ID its plan node has in Compile's
+// plan. The plan keeps only who waits for whom; the shape keeps the
+// program's structure, for drawing it. It runs the same phases as
+// Compile, up to Lower.
+func Composition(ctx context.Context, reg *registry.Registry, src Source) (Shape, error) {
+	l, err := weft.Pipe3(
+		weft.Arrow[Source, ast.AST](Parse),
+		weft.Arrow[ast.AST, resolved.AST](ResolveWith(reg)),
+		weft.Arrow[resolved.AST, Lowered](Lower),
+	)(ctx, src)
+	if err != nil {
+		return Shape{}, err
+	}
+	return simplify(l.Fragment.shape), nil
+}
+
+// simplify unwraps a pipe or par of one part (the parser makes each par
+// branch a pipe) into that part, which means the same.
+func simplify(s Shape) Shape {
+	for i, p := range s.Parts {
+		s.Parts[i] = simplify(p)
+	}
+	if s.Kind != "step" && len(s.Parts) == 1 {
+		return s.Parts[0]
+	}
+	return s
+}
+
 // CompileArrow returns the compile pipeline as a single composed
 // weft.Arrow[Source, plan.Plan], curried over the registry. Callers that
 // want to compose compilation into a larger arrow (or submit via
