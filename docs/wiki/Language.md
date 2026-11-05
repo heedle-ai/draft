@@ -89,7 +89,7 @@ fmt.Println(string(b))
 | String | `"hello"` | Double-quoted |
 | Number | `42`, `0.5` | Passed to the activity as a string (`"42"`). A command declares whether it accepts numbers |
 | Symbol | `echo`, `pipe` | Command and form names |
-| Keyword | `:backend` | Only used in `block` options |
+| Keyword | `:backend`, `:uses` | In `block` options; as a command's argument, it is the string `":uses"`, an option the command reads (act's `:send-without-asking`, for one) |
 
 Comments start with `;` or `//` and run to the end of the line. Strings may span lines and support the escapes `\n`, `\t`, `\r`, `\"` and `\\`. Whitespace is anything Unicode treats as a space.
 
