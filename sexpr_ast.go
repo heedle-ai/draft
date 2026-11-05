@@ -28,6 +28,7 @@ package draft
 import (
 	"context"
 	"fmt"
+	"unicode/utf8"
 
 	"github.com/heedle-ai/draft/ast"
 	"github.com/heedle-ai/draft/sexpr"
@@ -294,6 +295,11 @@ func callFromForm(f sexpr.Form) (ast.Node, error) {
 			// A command's option, such as act's :uses (roadmap 9.7):
 			// passed on as the string ":name", which the command reads.
 			// Arity and types are checked as for any string.
+			// Its name must be UTF-8 text, or printing it would change
+			// it (FuzzParsePrint: ":\x80" printed as ":\uFFFD").
+			if !utf8.ValidString(item.Text) {
+				return nil, fmt.Errorf("%s: %s's keyword argument isn't UTF-8 text", item.Pos, head.Text)
+			}
 			args = append(args, ast.StringArg{Value: ":" + item.Text})
 		default:
 			return nil, fmt.Errorf(
