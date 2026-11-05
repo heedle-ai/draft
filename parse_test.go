@@ -383,3 +383,25 @@ func TestModeString(t *testing.T) {
 		}
 	}
 }
+
+// TestInv_KeywordArgumentsAreStrings: a keyword among a command's
+// arguments is the string ":name" in its place, so a command reads its
+// own options (act's :uses, :send-without-asking); keywords at the head
+// of a form, or in a block's options, mean what they did. (Roadmap 9.7.)
+func TestInv_KeywordArgumentsAreStrings(t *testing.T) {
+	got := parse(t, `(act "Sign up." "https://forms.example.org/" :uses "name email" :send-without-asking)`)
+	c := expectCall(t, expectPipeline(t, got.Blocks[0])[0])
+	var args []string
+	for _, a := range c.Args {
+		args = append(args, a.(ast.StringArg).Value)
+	}
+	if strings.Join(args, "|") != `Sign up.|https://forms.example.org/|:uses|name email|:send-without-asking` {
+		t.Errorf("args: %q", args)
+	}
+	if _, err := draft.Parse(context.Background(), draft.Source(`(:act "x")`)); err == nil {
+		t.Error("a keyword as a form's head was accepted")
+	}
+	if b := parse(t, `(block :backend memory (echo :x))`).Blocks[0]; b.Backend != ast.BackendMemory {
+		t.Errorf("block options: %+v", b)
+	}
+}

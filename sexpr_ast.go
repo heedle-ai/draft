@@ -279,7 +279,8 @@ func parFromForm(f sexpr.Form) (ast.Node, error) {
 }
 
 // callFromForm converts (verb "arg" ...) into a Call. Arity and types
-// are not checked here; Resolve owns that against the registry.
+// are not checked here; Resolve owns that against the registry. A
+// keyword argument (:name) is the string ":name".
 func callFromForm(f sexpr.Form) (ast.Node, error) {
 	head := f.Items[0]
 	args := make([]ast.Arg, 0, len(f.Items)-1)
@@ -289,6 +290,11 @@ func callFromForm(f sexpr.Form) (ast.Node, error) {
 			args = append(args, ast.StringArg{Value: item.Text})
 		case sexpr.KindNumber:
 			args = append(args, ast.NumArg{Value: item.Num})
+		case sexpr.KindKeyword:
+			// A command's option, such as act's :uses (roadmap 9.7):
+			// passed on as the string ":name", which the command reads.
+			// Arity and types are checked as for any string.
+			args = append(args, ast.StringArg{Value: ":" + item.Text})
 		default:
 			return nil, fmt.Errorf(
 				"%s: %s expects literal arguments, got %s",
